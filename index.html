@@ -172,8 +172,17 @@
   .collectibles .item .pts{color:var(--gold);font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:.02em}
 
   /* OVERLAYS */
-  .veil{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:24px;background:var(--veil-bg);z-index:5;transition:background .3s}
+  .veil{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:24px;background:var(--veil-bg);z-index:5;transition:background .3s;overflow-y:auto}
   .veil.show{display:flex;animation:fadeIn .35s ease both}
+  /* Menu specifically: top-align content and give a fixed top padding so
+     the motto/title stay locked in place regardless of leaderboard height */
+  #menu.show{justify-content:flex-start;padding-top:24px}
+  #menu .motto{margin-bottom:12px}
+  #menu .presents{margin-bottom:6px}
+  #menu h1{margin-bottom:6px}
+  #menu .journey{margin:10px 0 14px}
+  #menu p{margin-bottom:12px}
+  #menu .name-row{margin-bottom:10px}
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
   .veil h1{font-size:clamp(28px,5vw,54px);font-weight:900;letter-spacing:-.02em;line-height:1.02;margin-bottom:8px;color:var(--text-strong);text-shadow:0 4px 30px rgba(204,0,0,.3)}
   .veil h1 .accent{color:var(--bain)}
@@ -197,12 +206,9 @@
   .name-row .cta:disabled:hover{transform:none;filter:grayscale(.5)}
 
   /* Leaderboard */
-  .lb-wrap{margin-top:6px;max-width:360px;width:100%;background:var(--stage-chip-bg);border:1px solid var(--stage-chip-border);border-radius:12px;padding:10px 14px;transition:all .3s}
+  .lb-wrap{margin-top:6px;max-width:360px;width:100%;background:var(--stage-chip-bg);border:1px solid var(--stage-chip-border);border-radius:12px;padding:8px 14px 10px;transition:all .3s}
   .lb-title{font-size:11px;font-weight:800;letter-spacing:.3em;text-transform:uppercase;color:var(--gold);margin-bottom:6px;text-align:center}
-  .lb-list{list-style:none;padding:0 6px 0 0;margin:0;font-variant-numeric:tabular-nums;max-height:110px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--btn-border) transparent}
-  .lb-list::-webkit-scrollbar{width:4px}
-  .lb-list::-webkit-scrollbar-track{background:transparent}
-  .lb-list::-webkit-scrollbar-thumb{background:var(--btn-border);border-radius:2px}
+  .lb-list{list-style:none;padding:0;margin:0;font-variant-numeric:tabular-nums}
   .lb-list li{display:flex;justify-content:space-between;align-items:center;padding:4px 2px;font-size:13px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border-subtle)}
   .lb-list li:last-child{border-bottom:0}
   .lb-list li .rank{color:var(--text-muted);width:22px;font-weight:800}
@@ -520,7 +526,7 @@ function submitAndReset(){
 function renderLeaderboard(){
   const el = document.getElementById('lbList');
   if (!el) return;
-  const board = getLeaderboard().slice(0, 15);
+  const board = getLeaderboard().slice(0, 3);
   if (board.length === 0){
     el.innerHTML = '<li class="lb-empty">No runs yet — be the first!</li>';
     return;

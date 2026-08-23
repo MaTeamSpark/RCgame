@@ -210,6 +210,10 @@
   .lb-list li.top3 .rank{color:#cd7f32}
   .lb-list li.me{background:rgba(204,0,0,.08);border-radius:6px;padding:4px 8px;margin:2px -6px}
   .lb-empty{color:var(--text-muted);font-size:12px;font-style:italic;text-align:center;padding:6px}
+  .lb-actions{display:flex;gap:14px;justify-content:center;margin-top:10px;padding-top:8px;border-top:1px solid var(--border-subtle)}
+  .lb-link{font-size:11px;font-weight:600;color:var(--gold);text-decoration:none;letter-spacing:.03em;cursor:pointer;transition:opacity .2s}
+  .lb-link:hover{opacity:.7;text-decoration:underline}
+  .lb-link-muted{color:var(--text-muted)}
 
   .journey{display:flex;gap:10px;justify-content:center;align-items:center;margin:12px 0 22px;flex-wrap:wrap;max-width:820px}
   .j-stage{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;border-radius:12px;background:var(--stage-chip-bg);border:1px solid var(--stage-chip-border);min-width:130px}
@@ -352,6 +356,10 @@
       <div class="lb-wrap" id="lbWrap">
         <div class="lb-title">🏆 Top Runs</div>
         <ol class="lb-list" id="lbList"></ol>
+        <div class="lb-actions">
+          <a href="#" id="downloadCsvBtn" class="lb-link">📥 Download scores (CSV)</a>
+          <a href="#" id="clearScoresBtn" class="lb-link lb-link-muted">Clear my scores</a>
+        </div>
       </div>
     </div>
 
@@ -461,7 +469,7 @@ const ctx    = canvas.getContext('2d');
    Payload: { name, score, stagesReached, ts }
    Leave as null and scores stay local (browser localStorage only).
 --------------------------------------------------------------------------- */
-const BACKEND_URL = null;
+const BACKEND_URL = https://script.google.com/macros/s/AKfycbyzn9HbW7M9lTGWvR5KBWkotEpVaOKWYGR-UXfpZxKMPrsPoLrMeUGW_WPxz_gb2ZyI/exec;
 const LB_STORAGE_KEY   = 'etk_leaderboard';
 const NAME_STORAGE_KEY = 'etk_playerName';
 
@@ -471,19 +479,26 @@ function getLeaderboard(){
 }
 function submitScore(name, score, stagesReached){
   if (!score || score <= 0) return;
-  const entry = { name: (name||'Anonymous').slice(0,20), score, stagesReached, ts: Date.now() };
+  const entry = {
+    name: (name||'Anonymous').slice(0,60),
+    score, stagesReached,
+    ts: Date.now(),
+  };
+  if (state.playerEmail) entry.email = state.playerEmail;
+  if (state.playerId)    entry.id    = state.playerId;
   // Local leaderboard (top 50 kept)
   let board = getLeaderboard();
   board.push(entry);
   board.sort((a,b) => b.score - a.score);
   board = board.slice(0, 50);
   try { localStorage.setItem(LB_STORAGE_KEY, JSON.stringify(board)); } catch(e){}
-  // Optional backend POST
+  // Optional backend POST — text/plain avoids CORS preflight (works for both
+  // Google Apps Script AND same-origin Flask on your VM)
   if (BACKEND_URL){
     try{
       fetch(BACKEND_URL, {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
+        headers: {'Content-Type':'text/plain;charset=utf-8'},
         body: JSON.stringify(entry),
       }).catch(err => console.warn('score submit failed:', err));
     } catch(err){ console.warn('score submit err:', err); }
@@ -519,6 +534,34 @@ function renderLeaderboard(){
       <span class="sc">${e.score.toLocaleString()}</span>
     </li>`;
   }).join('');
+}
+
+function exportScoresCSV(){
+  const board = getLeaderboard();
+  if (board.length === 0){ alert('No scores yet — play a round first!'); return; }
+  const rows = [['Name','Score','Stages Reached','Date','Timestamp']];
+  board.forEach(e => {
+    const dt = new Date(e.ts);
+    const dtStr = dt.toISOString().replace('T',' ').slice(0,19);
+    rows.push([e.name || 'Anonymous', e.score, e.stagesReached, dtStr, e.ts]);
+  });
+  const csv = rows.map(r => r.map(v => {
+    const s = String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }).join(',')).join('\n');
+  const bom = '\uFEFF';   // BOM so Excel opens UTF-8 properly
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'escape-to-kerala-scores-' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+}
+function clearMyScores(){
+  if (!confirm('Clear all scores stored on this device? This cannot be undone.')) return;
+  try { localStorage.removeItem(LB_STORAGE_KEY); } catch(e){}
+  renderLeaderboard();
 }
 
 /* --- 1. asset loader --- */
@@ -643,6 +686,8 @@ const state = {
   running:false, paused:false,
   stageIdx:0,
   playerName:'',
+  playerEmail:'',
+  playerId:'',
   lives:3, invuln:0, score:0,
   bgX:0, time:0, frameCount:0, elapsedMs:0,
   speed:1,
@@ -1231,14 +1276,31 @@ function togglePause(){
   document.getElementById('pauseBtn').textContent = state.paused ? 'Resume' : 'Pause';
 }
 document.getElementById('pauseBtn').addEventListener('click', togglePause);
-/* Name input + start button — name required to play */
+/* Name input + start button — name required to play.
+   If the server injects an identity (window.CURRENT_USER = {name, email, id}),
+   we auto-fill it and lock the input — no manual typing needed. */
 const nameInput = document.getElementById('playerNameInput');
 const startBtn  = document.getElementById('startBtn');
-// Prefill from localStorage if we have a saved name
-try {
-  const saved = localStorage.getItem(NAME_STORAGE_KEY);
-  if (saved){ nameInput.value = saved; state.playerName = saved; }
-} catch(e){}
+
+// Server-injected identity (Windows Auth / SSO / etc)
+const INJECTED = (typeof window.CURRENT_USER === 'object' && window.CURRENT_USER) ? window.CURRENT_USER : null;
+if (INJECTED && (INJECTED.name || INJECTED.email)){
+  const displayName = INJECTED.name || INJECTED.email.split('@')[0];
+  state.playerName  = displayName;
+  state.playerEmail = INJECTED.email || '';
+  state.playerId    = INJECTED.id    || INJECTED.email || displayName;
+  nameInput.value = displayName;
+  nameInput.readOnly = true;
+  nameInput.style.opacity = 0.8;
+  nameInput.style.cursor = 'not-allowed';
+  nameInput.title = 'Playing as ' + displayName + (state.playerEmail ? ' (' + state.playerEmail + ')' : '');
+} else {
+  // Prefill from localStorage if we have a saved name (GitHub Pages / offline fallback)
+  try {
+    const saved = localStorage.getItem(NAME_STORAGE_KEY);
+    if (saved){ nameInput.value = saved; state.playerName = saved; }
+  } catch(e){}
+}
 function refreshStartEnabled(){
   const nm = (nameInput.value || '').trim();
   startBtn.disabled = nm.length === 0;
@@ -1253,7 +1315,9 @@ startBtn.addEventListener('click', () => {
   const nm = (nameInput.value || '').trim();
   if (!nm) return;
   state.playerName = nm;
-  try { localStorage.setItem(NAME_STORAGE_KEY, nm); } catch(e){}
+  if (!INJECTED){
+    try { localStorage.setItem(NAME_STORAGE_KEY, nm); } catch(e){}
+  }
   // Fresh run: score at 0, start from stage 0
   state.score = 0;
   state.stageIdx = 0;
@@ -1273,6 +1337,10 @@ document.getElementById('menuBtn').addEventListener('click', () => {
   show('menu');
 });
 // againBtn onclick is set dynamically per win-case inside winStage()
+
+// Leaderboard admin actions
+document.getElementById('downloadCsvBtn').addEventListener('click', e => { e.preventDefault(); exportScoresCSV(); });
+document.getElementById('clearScoresBtn').addEventListener('click', e => { e.preventDefault(); clearMyScores(); });
 
 /* Theme toggle */
 document.querySelectorAll('#themeToggle button').forEach(b => {

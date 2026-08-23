@@ -190,16 +190,19 @@
 
   /* Name entry row (menu) */
   .name-row{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
-  .name-row input{background:var(--btn-bg);border:1px solid var(--btn-border);color:var(--text-strong);font:600 15px/1 inherit;padding:12px 16px;border-radius:999px;outline:none;min-width:220px;text-align:center;transition:all .2s}
+  .name-row input{background:var(--btn-bg);border:1px solid var(--btn-border);color:var(--text-strong);font:600 14px/1 inherit;padding:12px 20px;border-radius:999px;outline:none;min-width:360px;text-align:center;transition:all .2s}
   .name-row input:focus{border-color:var(--bain);background:var(--btn-hover);box-shadow:0 0 0 3px rgba(204,0,0,.15)}
   .name-row input::placeholder{color:var(--text-muted);font-weight:500}
   .name-row .cta:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;transform:none;filter:grayscale(.5)}
   .name-row .cta:disabled:hover{transform:none;filter:grayscale(.5)}
 
   /* Leaderboard */
-  .lb-wrap{margin-top:6px;max-width:360px;width:100%;background:var(--stage-chip-bg);border:1px solid var(--stage-chip-border);border-radius:12px;padding:12px 16px;transition:all .3s}
-  .lb-title{font-size:11px;font-weight:800;letter-spacing:.3em;text-transform:uppercase;color:var(--gold);margin-bottom:8px;text-align:center}
-  .lb-list{list-style:none;padding:0;margin:0;font-variant-numeric:tabular-nums}
+  .lb-wrap{margin-top:6px;max-width:360px;width:100%;background:var(--stage-chip-bg);border:1px solid var(--stage-chip-border);border-radius:12px;padding:10px 14px;transition:all .3s}
+  .lb-title{font-size:11px;font-weight:800;letter-spacing:.3em;text-transform:uppercase;color:var(--gold);margin-bottom:6px;text-align:center}
+  .lb-list{list-style:none;padding:0 6px 0 0;margin:0;font-variant-numeric:tabular-nums;max-height:110px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--btn-border) transparent}
+  .lb-list::-webkit-scrollbar{width:4px}
+  .lb-list::-webkit-scrollbar-track{background:transparent}
+  .lb-list::-webkit-scrollbar-thumb{background:var(--btn-border);border-radius:2px}
   .lb-list li{display:flex;justify-content:space-between;align-items:center;padding:4px 2px;font-size:13px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border-subtle)}
   .lb-list li:last-child{border-bottom:0}
   .lb-list li .rank{color:var(--text-muted);width:22px;font-weight:800}
@@ -210,10 +213,12 @@
   .lb-list li.top3 .rank{color:#cd7f32}
   .lb-list li.me{background:rgba(204,0,0,.08);border-radius:6px;padding:4px 8px;margin:2px -6px}
   .lb-empty{color:var(--text-muted);font-size:12px;font-style:italic;text-align:center;padding:6px}
-  .lb-actions{display:flex;gap:14px;justify-content:center;margin-top:10px;padding-top:8px;border-top:1px solid var(--border-subtle)}
-  .lb-link{font-size:11px;font-weight:600;color:var(--gold);text-decoration:none;letter-spacing:.03em;cursor:pointer;transition:opacity .2s}
-  .lb-link:hover{opacity:.7;text-decoration:underline}
-  .lb-link-muted{color:var(--text-muted)}
+  /* Menu instruction note — lives inside #footer, visible only while menu is open */
+  #footer .menu-footnote{display:none;font-size:11px;color:var(--text-muted);line-height:1.35;font-style:italic;opacity:.9;text-align:center;flex:1;max-width:520px;margin:0 12px;padding:0 8px}
+  body:has(#menu.show) #footer .menu-footnote{display:block}
+  @media (max-width:820px){
+    #footer .menu-footnote{display:none !important}     /* mobile footer too tight — hide always */
+  }
 
   .journey{display:flex;gap:10px;justify-content:center;align-items:center;margin:12px 0 22px;flex-wrap:wrap;max-width:820px}
   .j-stage{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;border-radius:12px;background:var(--stage-chip-bg);border:1px solid var(--stage-chip-border);min-width:130px}
@@ -350,16 +355,12 @@
       </div>
       <p>Four stages. Fifteen obstacles each. Three lives. Grab stars and stage snacks for bonus points. Score carries across stages — one full run, one leaderboard entry.</p>
       <div class="name-row">
-        <input type="text" id="playerNameInput" placeholder="Enter your name to play" maxlength="20" autocomplete="off" spellcheck="false"/>
+        <input type="text" id="playerNameInput" placeholder="Enter Full name, or emp ID, or email to play" maxlength="40" autocomplete="off" spellcheck="false"/>
         <button class="cta" id="startBtn" disabled>▶ Play</button>
       </div>
       <div class="lb-wrap" id="lbWrap">
         <div class="lb-title">🏆 Top Runs</div>
         <ol class="lb-list" id="lbList"></ol>
-        <div class="lb-actions">
-          <a href="#" id="downloadCsvBtn" class="lb-link">📥 Download scores (CSV)</a>
-          <a href="#" id="clearScoresBtn" class="lb-link lb-link-muted">Clear my scores</a>
-        </div>
       </div>
     </div>
 
@@ -388,13 +389,14 @@
     </div>
   </div>
 
-  <!-- FOOTER — controls + collectibles (only star + coffee now) -->
+  <!-- FOOTER — controls + note + collectibles (only star + coffee now) -->
   <div id="footer">
     <div class="controls">
       <div class="box" data-mode="run"><span class="kbd">SPACE</span><span class="kbd">↑</span><span class="lbl">Jump</span></div>
       <div class="box" data-mode="lanes"><span class="kbd">↑</span><span class="kbd">↓</span><span class="lbl">Lane</span></div>
       <div class="box" data-mode="fly"><span class="kbd">↑</span><span class="kbd">↓</span><span class="lbl">Fly</span></div>
     </div>
+    <div class="menu-footnote">Use your full name or employee ID or Bain email — helps match with Bain data so your run gets credited correctly.</div>
     <div class="collectibles">
       <span class="head">Collectibles</span>
       <div class="items">
@@ -518,7 +520,7 @@ function submitAndReset(){
 function renderLeaderboard(){
   const el = document.getElementById('lbList');
   if (!el) return;
-  const board = getLeaderboard().slice(0, 8);
+  const board = getLeaderboard().slice(0, 15);
   if (board.length === 0){
     el.innerHTML = '<li class="lb-empty">No runs yet — be the first!</li>';
     return;
@@ -1343,10 +1345,6 @@ document.getElementById('menuBtn').addEventListener('click', () => {
   show('menu');
 });
 // againBtn onclick is set dynamically per win-case inside winStage()
-
-// Leaderboard admin actions
-document.getElementById('downloadCsvBtn').addEventListener('click', e => { e.preventDefault(); exportScoresCSV(); });
-document.getElementById('clearScoresBtn').addEventListener('click', e => { e.preventDefault(); clearMyScores(); });
 
 /* Theme toggle */
 document.querySelectorAll('#themeToggle button').forEach(b => {

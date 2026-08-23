@@ -688,7 +688,7 @@ const state = {
   playerName:'',
   playerEmail:'',
   playerId:'',
-  lives:3, invuln:0, score:0,
+  lives:3, invuln:0, score:0, scoreAtStageStart:0,
   bgX:0, time:0, frameCount:0, elapsedMs:0,
   speed:1,
   hurdles:[], hurdlesSpawned:0, hurdlesCleared:0,
@@ -1086,6 +1086,7 @@ function startStage(){
   const stage = STAGES[state.stageIdx];
   state.running = true; state.paused = false;
   state.lives = 3; state.invuln = 60;
+  state.scoreAtStageStart = state.score;   // snapshot for Retry
   // NOTE: state.score deliberately NOT reset here — carries over from previous
   //       stages so a full run accumulates one leaderboard-worthy total.
   state.hurdles = []; state.hurdlesSpawned = 0; state.hurdlesCleared = 0;
@@ -1325,14 +1326,19 @@ startBtn.addEventListener('click', () => {
   startStage();
 });
 
-// Retry / Menu (from game over) — both submit the run first, then reset to stage 1
+// Retry — restart CURRENT stage with fresh lives, revert score to stage-start value
+// (keeps progress from earlier stages but prevents score inflation via repeated dying)
 document.getElementById('retryBtn').addEventListener('click', () => {
-  submitAndReset();
+  state.score = state.scoreAtStageStart;
+  updateScore();
+  hide('over');
   startStage();
 });
+// Menu — submit accumulated score, clear canvas to dark, show splash
 document.getElementById('menuBtn').addEventListener('click', () => {
   submitAndReset();
   hide('over');
+  ctx.clearRect(0, 0, W, H);              // dark canvas behind menu
   renderLeaderboard();
   show('menu');
 });

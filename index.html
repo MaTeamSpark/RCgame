@@ -668,11 +668,11 @@ const STAGES = [
     success:{ title:'Welcome to the <span class="accent">Off-Site</span>', copy:'Backwaters, coconuts, zero Slack pings. You made it.' },
     fail:   { title:'The <span class="accent">wildlife</span> won this round', copy:'Monkeys and elephants aren\'t a fair fight.' },
     hurdles:[
-      { key:'h4_coconut_cart', h:220, insetX:0.10, insetY:0.05 },
+      { key:'h4_coconut_cart', h:220, widthScale:0.90, insetX:0.10, insetY:0.05 },
       { key:'h4_monkey',       h:170, insetX:0.15, insetY:0.10 },
       { key:'h4_tourist',      h:260, insetX:0.20, insetY:0.05 },
-      { key:'h4_oxcart',       h:170, insetX:0.08, insetY:0.05 },
-      { key:'h4_elephant',     h:245, insetX:0.10, insetY:0.05 },
+      { key:'h4_oxcart',       h:170, widthScale:0.90, insetX:0.08, insetY:0.05 },
+      { key:'h4_elephant',     h:245, widthScale:0.90, insetX:0.10, insetY:0.05 },
       { key:'h4_yogi',         h:260, insetX:0.25, insetY:0.05 },
     ],
   },
@@ -844,7 +844,8 @@ function spawnHurdle(){
   }
   const def = state.hurdleBag.shift();
   const im = IMG[def.key];
-  const w = im ? im.width * def.h / im.height : 100;
+  const scale = def.widthScale || 1;
+  const w = (im ? im.width * def.h / im.height : 100) * scale;
   const newHd = { key:def.key, h:def.h, w, insetX:def.insetX, insetY:def.insetY,
                   x: W + w/2 + 40, scored:false };
   if (stage.mode === 'run'){

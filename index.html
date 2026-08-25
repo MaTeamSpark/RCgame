@@ -477,7 +477,7 @@ const ctx    = canvas.getContext('2d');
    Payload: { name, score, stagesReached, ts }
    Leave as null and scores stay local (browser localStorage only).
 --------------------------------------------------------------------------- */
-const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyzn9HbW7M9lTGWvR5KBWkotEpVaOKWYGR-UXfpZxKMPrsPoLrMeUGW_WPxz_gb2ZyI/exec";
+const BACKEND_URL = null;
 const LB_STORAGE_KEY   = 'etk_leaderboard';
 const NAME_STORAGE_KEY = 'etk_playerName';
 
@@ -501,13 +501,15 @@ function submitScore(name, score, stagesReached){
   board = board.slice(0, 50);
   try { localStorage.setItem(LB_STORAGE_KEY, JSON.stringify(board)); } catch(e){}
   // Optional backend POST — text/plain avoids CORS preflight (works for both
-  // Google Apps Script AND same-origin Flask on your VM)
+  // Google Apps Script AND same-origin Flask on your VM). keepalive:true makes
+  // the request survive tab-close so scores don't get lost if the player walks away.
   if (BACKEND_URL){
     try{
       fetch(BACKEND_URL, {
         method: 'POST',
         headers: {'Content-Type':'text/plain;charset=utf-8'},
         body: JSON.stringify(entry),
+        keepalive: true,
       }).catch(err => console.warn('score submit failed:', err));
     } catch(err){ console.warn('score submit err:', err); }
   }
@@ -697,6 +699,7 @@ const state = {
   playerEmail:'',
   playerId:'',
   lives:3, invuln:0, score:0, scoreAtStageStart:0,
+  submittedThisRun:false,        // guard against double-submission within a single run
   bgX:0, time:0, frameCount:0, elapsedMs:0,
   speed:1,
   hurdles:[], hurdlesSpawned:0, hurdlesCleared:0,
@@ -1119,6 +1122,9 @@ function gameOver(){
   const scoreStr = state.score.toLocaleString();
   document.getElementById('overTitle').innerHTML = fail.title;
   document.getElementById('overCopy').innerHTML  = `${fail.copy} You cleared <b>${state.hurdlesCleared}</b> of 15. Time <b>${timeStr}</b>. Score <b>${scoreStr}</b>.`;
+  // NOTE: no submission here — run only ends when the player picks Menu,
+  // completes stage 4, or closes the tab. Dying alone doesn't end the run
+  // because Retry is a valid continuation.
   show('over');
 }
 function winStage(){
@@ -1136,22 +1142,39 @@ function winStage(){
   winTitle.innerHTML = success.title;
 
   if (nextIdx < STAGES.length){
-    // next stage is fully wired — continue button plays it
+    // next stage is fully wired — continue button plays it. NO submit yet: run continues.
     const next = STAGES[nextIdx];
     winCopy.innerHTML  = `${success.copy} ${stats}. Next stop: <b>${next.title}</b>.`;
     againBtn.textContent = `▶ Play Stage ${nextIdx+1}`;
     againBtn.onclick = () => { state.stageIdx = nextIdx; startStage(); };
   } else if (nextIdx < STAGE_LABELS.length){
-    // next stage exists in the journey but isn't built yet
+    // next stage in the journey but not built yet — run ends here, submit immediately
     const nextLabel = STAGE_LABELS[nextIdx];
     winCopy.innerHTML  = `${success.copy} ${stats}. <br><span style="opacity:.7;font-style:italic">Stage ${nextIdx+1} (${nextLabel}) coming soon.</span>`;
     againBtn.textContent = `▶ Play Again`;
-    againBtn.onclick = () => { submitAndReset(); startStage(); };
+    if (state.score > 0 && !state.submittedThisRun){
+      submitScore(state.playerName, state.score, state.stageIdx + 1);
+      state.submittedThisRun = true;
+    }
+    againBtn.onclick = () => {
+      state.score = 0; state.stageIdx = 0; state.submittedThisRun = false;
+      updateScore(); updateStageUI();
+      startStage();
+    };
   } else {
-    // truly the final stage — full journey complete. Submit total run score.
+    // truly the final stage — submit immediately so score can't be lost if the player
+    // just admires the win screen and closes the tab instead of clicking Play Again.
     winCopy.innerHTML  = `${success.copy} ${stats}. <br><br><b>Full journey complete — Office to Kerala in ${timeStr}.</b>`;
     againBtn.textContent = `▶ Play Again`;
-    againBtn.onclick = () => { submitAndReset(); startStage(); };
+    if (state.score > 0 && !state.submittedThisRun){
+      submitScore(state.playerName, state.score, state.stageIdx + 1);
+      state.submittedThisRun = true;
+    }
+    againBtn.onclick = () => {
+      state.score = 0; state.stageIdx = 0; state.submittedThisRun = false;
+      updateScore(); updateStageUI();
+      startStage();
+    };
   }
   show('win');
 }
@@ -1328,24 +1351,34 @@ startBtn.addEventListener('click', () => {
   if (!INJECTED){
     try { localStorage.setItem(NAME_STORAGE_KEY, nm); } catch(e){}
   }
-  // Fresh run: score at 0, start from stage 0
+  // Fresh run: score at 0, start from stage 0, submission flag cleared
   state.score = 0;
   state.stageIdx = 0;
+  state.submittedThisRun = false;
   updateScore();
   startStage();
 });
 
-// Retry — restart CURRENT stage with fresh lives, revert score to stage-start value
-// (keeps progress from earlier stages but prevents score inflation via repeated dying)
+// Retry — restart CURRENT stage with fresh lives, revert score to stage-start value.
+// Clears the "already submitted" flag so the next outcome (win or game-over) can submit again.
 document.getElementById('retryBtn').addEventListener('click', () => {
   state.score = state.scoreAtStageStart;
+  state.submittedThisRun = false;
   updateScore();
   hide('over');
   startStage();
 });
-// Menu — submit accumulated score, clear canvas to dark, show splash
+// Menu — player is ending the run intentionally. Submit final accumulated score.
 document.getElementById('menuBtn').addEventListener('click', () => {
-  submitAndReset();
+  if (state.score > 0 && !state.submittedThisRun){
+    submitScore(state.playerName, state.score, state.stageIdx + 1);
+    state.submittedThisRun = true;
+  }
+  state.score = 0;
+  state.stageIdx = 0;
+  state.submittedThisRun = false;
+  updateScore();
+  updateStageUI();
   hide('over');
   ctx.clearRect(0, 0, W, H);              // dark canvas behind menu
   renderLeaderboard();
@@ -1365,6 +1398,18 @@ document.querySelectorAll('#themeToggle button').forEach(b => {
 });
 
 /* --- 13. boot --- */
+
+// Tab-close / navigate-away — capture score before the page dies.
+// pagehide fires on tab close, browser close, or navigation-away (mobile-friendly,
+// modern replacement for beforeunload). The submitScore fetch has keepalive:true
+// which keeps the outgoing HTTP request alive even after the page unloads.
+window.addEventListener('pagehide', () => {
+  if (state.score > 0 && !state.submittedThisRun){
+    submitScore(state.playerName, state.score, state.stageIdx + 1);
+    state.submittedThisRun = true;
+  }
+});
+
 (async function boot(){
   try { await loadAll(); } catch(e){ console.error('asset load failed', e); }
   document.getElementById('loader').style.display = 'none';

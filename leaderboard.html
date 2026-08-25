@@ -355,20 +355,20 @@
 
   <div class="stats-bar" id="statsBar" style="display:none">
     <div class="stat">
-      <div class="label">Total Runs</div>
-      <div class="value" id="statTotal">—</div>
+      <div class="label">Total Matches</div>
+      <div class="value" id="statMatches">—</div>
+    </div>
+    <div class="stat">
+      <div class="label">Players Played</div>
+      <div class="value" id="statPlayers">—</div>
+    </div>
+    <div class="stat">
+      <div class="label">Full Journeys</div>
+      <div class="value" id="statFinished">—</div>
     </div>
     <div class="stat">
       <div class="label">Top Score</div>
       <div class="value accent" id="statTop">—</div>
-    </div>
-    <div class="stat">
-      <div class="label">Full Journeys</div>
-      <div class="value" id="statFull">—</div>
-    </div>
-    <div class="stat">
-      <div class="label">Unique Players</div>
-      <div class="value" id="statUnique">—</div>
     </div>
   </div>
 
@@ -389,6 +389,7 @@
 <script>
   const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyzn9HbW7M9lTGWvR5KBWkotEpVaOKWYGR-UXfpZxKMPrsPoLrMeUGW_WPxz_gb2ZyI/exec";
   let allRows = [];
+  let allStats = null;
   let searchTerm = "";
 
   const $ = (id) => document.getElementById(id);
@@ -416,13 +417,23 @@
     return String(s || "").replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
-  function renderStats(rows) {
-    if (rows.length === 0) { $('statsBar').style.display = 'none'; return; }
+  function renderStats(rows, stats) {
+    // KPI cards always show the GLOBAL numbers from the Scores sheet — they do NOT
+    // shrink when the user types in the search box (the table below narrows instead).
+    if (!stats && rows.length === 0) { $('statsBar').style.display = 'none'; return; }
     $('statsBar').style.display = 'grid';
-    $('statTotal').textContent  = fmtNumber(rows.length);
-    $('statTop').textContent    = fmtNumber(Math.max(...rows.map(r => r.score)));
-    $('statFull').textContent   = fmtNumber(rows.filter(r => r.stage === 4).length);
-    $('statUnique').textContent = fmtNumber(new Set(rows.map(r => (r.name||'').toLowerCase())).size);
+    if (stats) {
+      $('statMatches').textContent  = fmtNumber(stats.totalMatches);
+      $('statPlayers').textContent  = fmtNumber(stats.uniquePlayers);
+      $('statFinished').textContent = fmtNumber(stats.totalFinished);
+      $('statTop').textContent      = fmtNumber(stats.topScore);
+    } else {
+      // Fallback if the Apps Script hasn't been updated with the new stats block
+      $('statMatches').textContent  = fmtNumber(rows.length);
+      $('statPlayers').textContent  = fmtNumber(new Set(rows.map(r => (r.name||'').toLowerCase())).size);
+      $('statFinished').textContent = fmtNumber(rows.filter(r => r.stage === 4).length);
+      $('statTop').textContent      = fmtNumber(Math.max.apply(null, rows.map(r => r.score)));
+    }
   }
 
   function renderTable(rows) {
@@ -473,7 +484,8 @@
       (r.department || '').toLowerCase().includes(t)
     ) : allRows;
     renderTable(filtered);
-    renderStats(filtered);
+    // KPIs stay global (allStats) even when the table is filtered
+    renderStats(allRows, allStats);
   }
 
   async function fetchLeaderboard() {
@@ -483,6 +495,7 @@
       const data = await res.json();
       if (!data.ok) throw new Error(data.err || 'Unknown error');
       allRows = data.rows || [];
+      allStats = data.stats || null;
       $('updated').textContent = 'Updated ' + fmtRelative(data.updatedAt || new Date().toISOString());
       applyFilter();
     } catch (err) {

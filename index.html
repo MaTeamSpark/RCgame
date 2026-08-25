@@ -486,7 +486,8 @@ function getLeaderboard(){
   catch(e){ return []; }
 }
 function submitScore(name, score, stagesReached){
-  if (!score || score <= 0) return;
+  console.log('[EtK] submitScore called', { name, score, stagesReached, hasBackend: !!BACKEND_URL, alreadySubmitted: state.submittedThisRun });
+  if (!score || score <= 0){ console.log('[EtK] score is 0/invalid, skipping submission'); return; }
   const entry = {
     name: (name||'Anonymous').slice(0,60),
     score, stagesReached,
@@ -499,19 +500,24 @@ function submitScore(name, score, stagesReached){
   board.push(entry);
   board.sort((a,b) => b.score - a.score);
   board = board.slice(0, 50);
-  try { localStorage.setItem(LB_STORAGE_KEY, JSON.stringify(board)); } catch(e){}
+  try { localStorage.setItem(LB_STORAGE_KEY, JSON.stringify(board)); } catch(e){ console.warn('[EtK] localStorage save failed', e); }
   // Optional backend POST — text/plain avoids CORS preflight (works for both
   // Google Apps Script AND same-origin Flask on your VM). keepalive:true makes
   // the request survive tab-close so scores don't get lost if the player walks away.
   if (BACKEND_URL){
+    console.log('[EtK] POSTing to backend', BACKEND_URL, entry);
     try{
       fetch(BACKEND_URL, {
         method: 'POST',
         headers: {'Content-Type':'text/plain;charset=utf-8'},
         body: JSON.stringify(entry),
         keepalive: true,
-      }).catch(err => console.warn('score submit failed:', err));
-    } catch(err){ console.warn('score submit err:', err); }
+      })
+      .then(r => console.log('[EtK] backend responded', r.status, r.statusText))
+      .catch(err => console.warn('[EtK] score submit failed:', err));
+    } catch(err){ console.warn('[EtK] score submit err:', err); }
+  } else {
+    console.warn('[EtK] BACKEND_URL is null — score saved locally only, not sent to sheet');
   }
   renderLeaderboard();
 }
@@ -1370,9 +1376,12 @@ document.getElementById('retryBtn').addEventListener('click', () => {
 });
 // Menu — player is ending the run intentionally. Submit final accumulated score.
 document.getElementById('menuBtn').addEventListener('click', () => {
+  console.log('[EtK] Menu clicked from game over', { score: state.score, stageIdx: state.stageIdx, submittedThisRun: state.submittedThisRun, playerName: state.playerName });
   if (state.score > 0 && !state.submittedThisRun){
     submitScore(state.playerName, state.score, state.stageIdx + 1);
     state.submittedThisRun = true;
+  } else {
+    console.warn('[EtK] Menu click did NOT trigger submission', { scoreCheck: state.score > 0, notSubmittedCheck: !state.submittedThisRun });
   }
   state.score = 0;
   state.stageIdx = 0;
@@ -1404,6 +1413,7 @@ document.querySelectorAll('#themeToggle button').forEach(b => {
 // modern replacement for beforeunload). The submitScore fetch has keepalive:true
 // which keeps the outgoing HTTP request alive even after the page unloads.
 window.addEventListener('pagehide', () => {
+  console.log('[EtK] pagehide fired', { score: state.score, submittedThisRun: state.submittedThisRun });
   if (state.score > 0 && !state.submittedThisRun){
     submitScore(state.playerName, state.score, state.stageIdx + 1);
     state.submittedThisRun = true;

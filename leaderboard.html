@@ -339,6 +339,32 @@
   }
   footer a { color: var(--bain); text-decoration: none; font-weight: 600; }
   footer a:hover { text-decoration: underline; }
+  .title-block .credit-note {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    letter-spacing: .01em;
+    line-height: 1.4;
+  }
+  .title-block .credit-note b {
+    color: var(--gold);
+    font-weight: 700;
+  }
+  td.runs, th.runs {
+    text-align: right;
+  }
+  td.runs {
+    font-weight: 800;
+    color: var(--gold);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  tr.top1 td.runs { font-size: 16px; }
+  @media (max-width: 720px) {
+    td.dept, th.dept { display: none; }
+    /* keep runs column visible on mobile — it's the interesting one */
+  }
+  /* Bump */
   /* MOBILE */
   @media (max-width: 720px) {
     .container { padding: 16px 12px 40px; }
@@ -368,6 +394,7 @@
       <div class="sub">🏆 Leaderboard</div>
       <div class="brand"><b>Marketing Analytics</b> presents</div>
       <h1>Escape to <span class="accent">Kerala</span></h1>
+      <div class="credit-note">Only players who finish all four stages appear here 🏁 · Every game score adds <b>1/10<sup>th</sup></b> to your main <b>RC 2026</b> tally 🏏</div>
     </div>
     <div class="header-right">
       <a href="./index.html" class="play-btn" target="_blank" rel="noopener">▶ Play Game</a>
@@ -399,7 +426,7 @@
       <div class="value" id="statFinished">—</div>
     </div>
     <div class="stat">
-      <div class="label">Top Score</div>
+      <div class="label">Top Game Score</div>
       <div class="value accent" id="statTop">—</div>
     </div>
   </div>
@@ -483,11 +510,12 @@
       const rank = r.rank || (i + 1);
       const cls = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
       const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+      const runs = Math.floor(r.score / 10);
       return `<tr class="${cls}">
         <td class="rank">${medal}</td>
         <td class="name">${escape(r.name)}</td>
         <td class="score">${fmtNumber(r.score)}</td>
-        <td class="stage"><span class="stage-badge">Stage ${escape(r.stage)}</span></td>
+        <td class="runs">+${fmtNumber(runs)}</td>
         <td class="group">${escape(r.group)}</td>
         <td class="dept">${escape(r.department)}</td>
       </tr>`;
@@ -498,8 +526,8 @@
           <tr>
             <th>Rank</th>
             <th>Player</th>
-            <th class="right">Score</th>
-            <th class="center">Stage</th>
+            <th class="right">Game Score</th>
+            <th class="runs">Runs Credited</th>
             <th class="group">Team</th>
             <th class="dept">Department</th>
           </tr>

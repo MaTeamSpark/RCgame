@@ -219,6 +219,8 @@
   .lb-list li.top3 .rank{color:#cd7f32}
   .lb-list li.me{background:rgba(204,0,0,.08);border-radius:6px;padding:4px 8px;margin:2px -6px}
   .lb-empty{color:var(--text-muted);font-size:12px;font-style:italic;text-align:center;padding:6px}
+  .lb-external-link{display:block;text-align:center;font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);text-decoration:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-subtle);transition:opacity .2s}
+  .lb-external-link:hover{opacity:.75;color:var(--bain)}
   /* Menu instruction note — lives inside #footer, visible only while menu is open */
   #footer .menu-footnote{display:none;font-size:11px;color:var(--text-muted);line-height:1.35;font-style:italic;opacity:.9;text-align:center;flex:1;max-width:520px;margin:0 12px;padding:0 8px}
   body:has(#menu.show) #footer .menu-footnote{display:block}
@@ -367,6 +369,7 @@
       <div class="lb-wrap" id="lbWrap">
         <div class="lb-title">🏆 Top Runs</div>
         <ol class="lb-list" id="lbList"></ol>
+        <a href="./leaderboard.html" class="lb-external-link" target="_blank" rel="noopener">View Full Leaderboard →</a>
       </div>
     </div>
 
